@@ -1,131 +1,468 @@
+from deepface import DeepFace
 import cv2
-import mediapipe as mp
 import time
+import os
+import serial
+from datetime import datetime
 
-mp_hands = mp.solutions.hands
 
-hands = mp_hands.Hands(
-    static_image_mode=False,
-    max_num_hands=1,
-    min_detection_confidence=0.5,
-    min_tracking_confidence=0.5
+# ==========================
+# CONFIGURAÇÕES
+# ==========================
+
+COM_ARDUINO = "COM3"
+
+TEMPO_TOTAL = 60
+
+TEMPO_ABERTA_INICIO = 8
+
+TEMPO_FECHADA = 42
+
+INTERVALO_RECONHECIMENTO = 2
+
+
+# ==========================
+# ARDUINO
+# ==========================
+
+arduino = serial.Serial(
+    COM_ARDUINO,
+    9600
 )
 
-mp_draw = mp.solutions.drawing_utils
+time.sleep(2)
 
-cap = cv2.VideoCapture(0)
 
-torneira_aberta = False
-tempo_inicio = 0
-TEMPO_ABERTA = 20
+def abrir_torneira():
 
-# 🔥 DETECÇÃO DE JOINHA SIMPLES E EFICAZ
-def is_joinha(hand):
-    # Polegar (dedo que fica em pé)
-    thumb_tip = hand.landmark[4]
-    thumb_ip = hand.landmark[3]  # Articulação do meio do polegar
-    
-    # Indicador
-    index_tip = hand.landmark[8]
-    index_pip = hand.landmark[6]
-    
-    # Dedo médio
-    middle_tip = hand.landmark[12]
-    middle_pip = hand.landmark[10]
-    
-    # Dedo anelar
-    ring_tip = hand.landmark[16]
-    ring_pip = hand.landmark[14]
-    
-    # Mindinho
-    pinky_tip = hand.landmark[20]
-    pinky_pip = hand.landmark[18]
-    
-    # CONDICÃO 1: Polegar deve estar esticado para CIMA
-    # O polegar em joinha fica com a ponta acima da articulação média
-    polegar_esticado = thumb_tip.y < thumb_ip.y - 0.02
-    
-    # CONDIÇÃO 2: Os outros 4 dedos devem estar FECHADOS (dobrados)
-    # Dedo fechado = ponta do dedo está abaixo da articulação média
-    indicador_fechado = index_tip.y > index_pip.y
-    medio_fechado = middle_tip.y > middle_pip.y
-    anelar_fechado = ring_tip.y > ring_pip.y
-    mindinho_fechado = pinky_tip.y > pinky_pip.y
-    
-    # RESULTADO: Polegar pra cima E todos os outros dedos fechados
-    return polegar_esticado and indicador_fechado and medio_fechado and anelar_fechado and mindinho_fechado
+    arduino.write(b"ABRIR\n")
+
+    print("TORNEIRA ABERTA")
+
+
+
+def fechar_torneira():
+
+    arduino.write(b"FECHAR\n")
+
+    print("TORNEIRA FECHADA")
+
+
+
+
+# ==========================
+# PASTAS
+# ==========================
+
+os.makedirs(
+    "videos",
+    exist_ok=True
+)
+
+os.makedirs(
+    "logs",
+    exist_ok=True
+)
+
+
+
+# ==========================
+# CAMERA
+# ==========================
+
+cap = cv2.VideoCapture(
+    0,
+    cv2.CAP_DSHOW
+)
+
+
+cap.set(
+    cv2.CAP_PROP_FRAME_WIDTH,
+    640
+)
+
+cap.set(
+    cv2.CAP_PROP_FRAME_HEIGHT,
+    480
+)
+
+
+
+# ==========================
+# VARIÁVEIS
+# ==========================
+
+ultimo_teste = 0
+
+funcionario = "Nenhum"
+
+mensagem = "Aguardando..."
+
+gravando = False
+
+inicio = 0
+
+estado = "FECHADA"
+
+video = None
+
+
+
+
+print("Sistema Hospitalar iniciado")
+
+
+
+# ==========================
+# LOOP
+# ==========================
 
 while True:
+
+
     ret, frame = cap.read()
+
+
     if not ret:
-        break
-        
-    frame = cv2.flip(frame, 1)
-    h, w, _ = frame.shape
 
-    # Processamento para detecção
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    resultado = hands.process(frame_rgb)
+        continue
 
-    zona_y = int(h * 0.6)
 
-    # Verifica se tem mão na zona e se é joinha
-    if not torneira_aberta and resultado.multi_hand_landmarks:
-        for hand_landmarks in resultado.multi_hand_landmarks:
-            
-            # Desenha os pontos da mão (opcional)
-            mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-            
-            # Pega a posição da mão
-            y_vals = [lm.y for lm in hand_landmarks.landmark]
-            y_centro = sum(y_vals) / len(y_vals)
-            
-            # Verifica se está na zona da pia
-            if y_centro > 0.6:  # Dentro da zona azul
-                
-                # Verifica se é joinha
-                if is_joinha(hand_landmarks):
-                    torneira_aberta = True
-                    tempo_inicio = time.time()
-                    print("✅ JOINHA DETECTADO! Torneira aberta")
-                    cv2.putText(frame, "JOINHA DETECTADO!", (10, 100),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-                else:
-                    cv2.putText(frame, "FACA O GESTO DE JOINHA", (10, 100),
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
 
-    # Timer para fechar a torneira
-    if torneira_aberta:
-        tempo_passado = time.time() - tempo_inicio
-        if tempo_passado >= TEMPO_ABERTA:
-            torneira_aberta = False
-            print("⏰ Torneira fechada")
+    agora = time.time()
+
+
+
+    # ==========================
+    # RECONHECIMENTO
+    # ==========================
+
+
+    if not gravando and agora - ultimo_teste > INTERVALO_RECONHECIMENTO:
+
+
+        try:
+
+
+            resultado = DeepFace.find(
+
+                img_path=frame,
+
+                db_path="funcionarios",
+
+                model_name="Facenet",
+
+                detector_backend="opencv",
+
+                enforce_detection=False
+
+            )
+
+
+            if len(resultado) > 0:
+
+
+                dados = resultado[0]
+
+
+                if not dados.empty:
+
+
+                    caminho = dados.iloc[0]["identity"]
+
+
+                    funcionario = os.path.basename(
+
+                        os.path.dirname(caminho)
+
+                    )
+
+
+                    print(
+                        "Reconhecido:",
+                        funcionario
+                    )
+
+
+                    mensagem = "FUNCIONARIO RECONHECIDO"
+
+
+                    gravando = True
+
+
+                    inicio = agora
+
+
+
+                    abrir_torneira()
+
+
+                    estado = "ABERTA"
+
+
+
+                    nome_video = (
+
+                        f"videos/{funcionario}_"
+
+                        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+
+                    )
+
+
+                    video = cv2.VideoWriter(
+
+                        nome_video,
+
+                        cv2.VideoWriter_fourcc(*"mp4v"),
+
+                        20,
+
+                        (640,480)
+
+                    )
+
+
+                    with open(
+
+                        "logs/registros.txt",
+
+                        "a"
+
+                    ) as log:
+
+
+                        log.write(
+
+                            f"{datetime.now()} - {funcionario}\n"
+
+                        )
+
+
+
+
+        except Exception as erro:
+
+
+            print(
+
+                "Erro reconhecimento:",
+
+                erro
+
+            )
+
+
+        ultimo_teste = agora
+
+
+
+
+
+    # ==========================
+    # PROTOCOLO 60 SEGUNDOS
+    # ==========================
+
+
+    tempo_passado = 0
+
+
+
+    if gravando:
+
+
+        tempo_passado = agora - inicio
+
+
+        video.write(frame)
+
+
+
+        if tempo_passado < 8:
+
+
+            if estado != "ABERTA":
+
+                abrir_torneira()
+
+
+            estado = "ABERTA"
+
+
+
+
+        elif tempo_passado < 50:
+
+
+            if estado != "FECHADA":
+
+                fechar_torneira()
+
+
+            estado = "FECHADA"
+
+
+
+
+        elif tempo_passado < 60:
+
+
+            if estado != "ABERTA":
+
+                abrir_torneira()
+
+
+            estado = "ABERTA"
+
+
+
+
         else:
-            # Mostra tempo restante
-            tempo_restante = int(TEMPO_ABERTA - tempo_passado)
-            cv2.putText(frame, f"Tempo: {tempo_restante}s", (10, 150),
-                      cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
 
-    # Status da torneira
-    status = "ABERTA" if torneira_aberta else "FECHADA"
-    cor = (0, 255, 0) if torneira_aberta else (0, 0, 255)
-    
-    cv2.putText(frame, f"Torneira: {status}", (10, 50),
-                cv2.FONT_HERSHEY_SIMPLEX, 1, cor, 2)
 
-    # Desenha a zona da pia
-    cv2.rectangle(frame, (0, zona_y), (w, h), (255, 0, 0), 2)
-    cv2.putText(frame, "ZONA DA PIA", (10, zona_y - 10),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+            fechar_torneira()
 
-    # Instrução
-    cv2.putText(frame, "Faça JOINHA dentro da zona azul", (10, h - 20),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
 
-    cv2.imshow("Torneira Inteligente - Joinha", frame)
+            video.release()
 
-    if cv2.waitKey(1) & 0xFF == 27:  # ESC
+            video = None
+
+
+            gravando = False
+
+
+            funcionario = "Nenhum"
+
+
+            mensagem = "Aguardando..."
+
+            estado = "FECHADA"
+
+
+            print(
+                "Processo finalizado"
+            )
+
+
+
+    restante = int(
+
+        TEMPO_TOTAL - tempo_passado
+
+    )
+
+
+
+    # ==========================
+    # TELA
+    # ==========================
+
+
+    cv2.putText(
+
+        frame,
+
+        mensagem,
+
+        (20,40),
+
+        cv2.FONT_HERSHEY_SIMPLEX,
+
+        0.8,
+
+        (0,255,0),
+
+        2
+
+    )
+
+
+    cv2.putText(
+
+        frame,
+
+        f"Funcionario: {funcionario}",
+
+        (20,90),
+
+        cv2.FONT_HERSHEY_SIMPLEX,
+
+        0.8,
+
+        (255,255,0),
+
+        2
+
+    )
+
+
+
+    cv2.putText(
+
+        frame,
+
+        f"Torneira: {estado}",
+
+        (20,140),
+
+        cv2.FONT_HERSHEY_SIMPLEX,
+
+        0.8,
+
+        (0,0,255),
+
+        2
+
+    )
+
+
+
+    cv2.putText(
+
+        frame,
+
+        f"Tempo: {max(restante,0)}s",
+
+        (20,190),
+
+        cv2.FONT_HERSHEY_SIMPLEX,
+
+        0.8,
+
+        (255,255,255),
+
+        2
+
+    )
+
+
+
+    cv2.imshow(
+
+        "Sistema Hospitalar",
+
+        frame
+
+    )
+
+
+
+    if cv2.waitKey(1) == 27:
+
         break
+
+
+
 
 cap.release()
+
+
+if video:
+
+    video.release()
+
+
+arduino.close()
+
+
 cv2.destroyAllWindows()

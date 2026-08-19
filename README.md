@@ -1,161 +1,105 @@
-# 🚰 Torneira Facial — Sistema Inteligente de Higienização Hospitalar
+# Torneira Facial: Sistema Automatizado de Higienização Hospitalar
 
-## 📌 Sobre o projeto
+Projeto de Iniciação Científica desenvolvido no curso de Ciência de Dados e Inteligência Artificial, focado na aplicação de visão computacional, automação e sistemas embarcados para o controle de fluxos de higienização em ambientes de saúde.
 
-O **Torneira Facial** é um **projeto de Iniciação Científica** desenvolvido no curso de **Ciência de Dados e Inteligência Artificial**, com foco na aplicação de **Inteligência Artificial, Visão Computacional e Automação** na área da saúde.
+---
 
-A proposta consiste no desenvolvimento de um sistema inteligente capaz de identificar funcionários por meio de **reconhecimento facial** e controlar automaticamente uma torneira durante um protocolo de higienização das mãos.
+## Sobre o Projeto
 
-O projeto integra **software e hardware**, utilizando Python, DeepFace, OpenCV, Arduino e módulo relé, além de realizar o registro dos procedimentos e a gravação em vídeo.
+O sistema consiste em uma solução integrada de software e hardware capaz de identificar funcionários cadastrados por meio de reconhecimento facial e acionar automaticamente uma torneira durante o protocolo padrão de lavagem das mãos.
 
-## 🎯 Objetivo
+Além da automação do fluxo de água, a aplicação realiza o registro temporal dos procedimentos e a gravação em vídeo para fins de auditoria e análise posterior.
 
-Desenvolver e estudar uma solução automatizada que possa auxiliar no processo de higienização das mãos em ambientes hospitalares, utilizando reconhecimento facial e automação para:
+---
 
-* Identificar funcionários cadastrados;
-* Automatizar a abertura e o fechamento da torneira;
-* Executar um protocolo de higienização;
-* Registrar os procedimentos realizados;
-* Gravar o processo em vídeo;
-* Reduzir o desperdício de água;
-* Investigar uma futura integração com sistemas hospitalares.
+## Arquitetura e Funcionamento
 
-## ⚙️ Funcionamento
-
-O sistema funciona através da integração:
+O fluxo de execução integra processamento de imagem em tempo real e comunicação serial com microcontroladores:
 
 ```text
-Câmera
-   ↓
-OpenCV
-   ↓
-DeepFace
-   ↓
-Python
-   ↓
-Arduino
-   ↓
-Relé
-   ↓
-Torneira
+[Câmera] 
+   ↓ 
+[OpenCV] 
+   ↓ 
+[DeepFace / FaceNet] 
+   ↓ 
+[Python (PySerial)] 
+   ↓ 
+[Arduino] 
+   ↓ 
+[Módulo Relé] 
+   ↓ 
+[Torneira Automatizada]
+
 ```
 
-Quando um funcionário é identificado, o Python envia comandos ao Arduino através da comunicação serial. O Arduino controla o relé, que realiza o acionamento da torneira.
+1. **Captura e Detecção:** O OpenCV captura os quadros da webcam e realiza a detecção inicial de rostos.
+2. **Identificação:** O DeepFace (utilizando o modelo FaceNet) compara a face detectada com a base de dados local (`funcionarios/`).
+3. **Comunicação:** Ao confirmar a identidade do funcionário, o script em Python envia um comando via porta serial (`PySerial`) para o Arduino.
+4. **Atuação:** O Arduino aciona o módulo relé, abrindo ou fechando o fluxo da torneira conforme o protocolo estabelecido.
+5. **Registro:** Paralelamente, o sistema armazena logs textuais (`logs/`) e grava o procedimento em vídeo (`videos/`).
 
-Ao mesmo tempo, o sistema registra o procedimento e realiza a gravação em vídeo.
+---
 
-## 🤖 Inteligência Artificial
-
-O reconhecimento facial utiliza **DeepFace** e o modelo **FaceNet**, enquanto o **OpenCV** é responsável pela captura da câmera e detecção inicial dos rostos.
-
-Os funcionários são cadastrados através de imagens:
+## Estrutura do Diretório de Cadastros
 
 ```text
 funcionarios/
 ├── Lucas/
 │   └── foto.jpg
-│
 └── Katarina/
     └── foto.jpg
+
 ```
 
-## 🚿 Protocolo atual
+---
 
-O protótipo possui um ciclo de **60 segundos**:
+## Protocolo de Higienização
 
-* 🟢 0–8 segundos: torneira aberta
-* 🔴 8–50 segundos: torneira fechada
-* 🟢 50–60 segundos: torneira aberta
-* 🔴 Após 60 segundos: torneira fechada
+O protótipo opera atualmente com um ciclo padrão de 60 segundos estruturado da seguinte forma:
 
-## 🎥 Registro
+* **00s – 08s:** Torneira aberta (molhagem inicial e aplicação de sabonete)
+* **08s – 50s:** Torneira fechada (fricção e esfregamento das mãos)
+* **50s – 60s:** Torneira aberta (enxágue)
+* **Após 60s:** Torneira fechada (fim do ciclo)
 
-Durante o procedimento, o sistema realiza a gravação em vídeo e gera registros dos eventos.
+---
 
-```text
-videos/
-logs/
-```
-
-Esses dados poderão futuramente ser utilizados para análises, relatórios e estudos relacionados ao processo de higienização.
-
-## 🛠️ Tecnologias
+## Stack Tecnológica
 
 ### Software
 
-* Python
-* OpenCV
-* DeepFace
-* FaceNet
-* TensorFlow
-* PySerial
+* **Python** (Linguagem principal)
+* **OpenCV** (Captura de vídeo e processamento de imagem)
+* **DeepFace & FaceNet** (Extração de características e reconhecimento facial)
+* **TensorFlow** (Backend para os modelos de aprendizado de máquina)
+* **PySerial** (Comunicação serial com o microcontrolador)
 
 ### Hardware
 
-* Arduino
-* Módulo Relé
-* Webcam
-* Torneira automatizada
+* **Arduino** (Unidade microcontrolada)
+* **Módulo Relé** (Chaveamento elétrico para a válvula/torneira)
+* **Webcam** (Dispositivo de captura visual)
+* **Torneira automatizada** (Atuador hidráulico)
 
-## 🚀 Desenvolvimento futuro
+---
 
-Como parte da pesquisa de Iniciação Científica, estão previstas futuras etapas de desenvolvimento:
+## Próximas Etapas de Pesquisa
 
-* Criação de um banco de dados estruturado;
-* Cadastro de funcionários;
-* Armazenamento dos procedimentos;
-* Desenvolvimento de um painel de acompanhamento;
-* Análise dos dados coletados;
-* Estudo de integração com sistemas hospitalares;
-* Aprimoramento do reconhecimento facial;
-* Melhorias na segurança e proteção dos dados;
-* Funcionamento do sistema sem necessidade de um notebook;
-* Inicialização automática do equipamento;
-* Testes e validação do protótipo.
+Como parte do cronograma da Iniciação Científica, estão previstas as seguintes melhorias:
 
-## 🏥 Aplicação futura
+* Migração para um banco de dados estruturado.
+* Implementação de uma interface para cadastro e gerenciamento de funcionários.
+* Desenvolvimento de um painel analítico para acompanhamento dos dados coletados.
+* Estudo de viabilidade para integração com prontuários e sistemas hospitalares (sob normas de segurança e LGPD).
+* Otimização do pipeline para execução autônoma (sem necessidade de um computador conectado).
 
-A pesquisa busca estudar a viabilidade de uma solução que possa futuramente ser utilizada em ambientes hospitalares.
+---
 
-Uma possível arquitetura seria:
+## Status do Projeto
 
-```text
-Sistema Hospitalar
-       ↓
-Banco de Dados / API
-       ↓
-Sistema de Higienização
-       ↓
-Reconhecimento Facial
-       ↓
-Arduino
-       ↓
-Torneira
-```
+**Protótipo Funcional** — Em fase de testes de bancada e validação de engenharia.
 
-A integração com sistemas hospitalares será estudada durante o desenvolvimento, considerando requisitos de segurança, privacidade, proteção de dados e infraestrutura.
-
-## ⚠️ Status
-
-**🟢 Protótipo funcional — Projeto de Iniciação Científica em desenvolvimento**
-
-Atualmente, o protótipo conta com:
-
-* ✅ Reconhecimento facial
-* ✅ Detecção facial
-* ✅ Arduino
-* ✅ Controle por relé
-* ✅ Comunicação Python ↔ Arduino
-* ✅ Controle automático da torneira
-* ✅ Gravação de vídeo
-* ✅ Registro de logs
-* ✅ Protocolo automatizado
-
-O projeto ainda está em fase de pesquisa e desenvolvimento e necessita de novas etapas de testes, validação e avaliação antes de qualquer aplicação em ambiente hospitalar real.
-
-## 👨‍🎓 Iniciação Científica
-
-Este projeto está sendo desenvolvido como uma **pesquisa de Iniciação Científica** no curso de **Ciência de Dados e Inteligência Artificial**, buscando aplicar conhecimentos de Inteligência Artificial, Ciência de Dados, Visão Computacional, programação e sistemas embarcados na investigação de uma solução tecnológica para um problema relacionado à saúde.
-
-> **Reconhecer. Automatizar. Registrar. Higienizar.**
-
+* Reconhecimento e detecção facial operacionais.
+* Comunicação Python–Arduino estável via relé.
+* Ciclo de temporização e rotinas de log/vídeo implementados.
